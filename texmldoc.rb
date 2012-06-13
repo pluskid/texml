@@ -26,7 +26,7 @@ class TeXMLDoc
 
   # renderer for doc node
   register_renderer(:doc, :par) do |doc|
-    doc[1].map { |x| render_node(x) }.join('')
+    collapse_text_nodes doc[1].map { |x| render_node(x) }
   end
 
   # renderer for paragraph
@@ -49,14 +49,6 @@ class TeXMLDoc
 
   register_renderer(:space) do |space|
     ' '
-  end
-
-  register_renderer(:inline_math) do |math|
-    wrap_inline_math(math[1])
-  end
-
-  register_renderer(:display_math) do |math|
-    wrap_display_math(math[1])
   end
 
   # renderer for inline command
@@ -95,15 +87,17 @@ class TeXMLDoc
   #         - args: array of arguments
   #         - kwargs: hash of keyword arguments
   #        all the values of the arguments are already rendered
-  def self.register_command(name, num_arg, default_kwargs, &blk)
-    define_method("command_#{name}".to_sym) do |args, kwargs|
-      if num_arg >= 0
-        if num_arg != args.size
-          raise SyntaxError, "expected #{num_arg} arguments for command #{name}, but got #{args.size}"
-        end
-        kw = default_kwargs.merge(kwargs)
+  def self.register_command(names, num_arg, default_kwargs, &blk)
+    Array(names).each do |name|
+      define_method("command_#{name}".to_sym) do |args, kwargs|
+        if num_arg >= 0
+          if num_arg != args.size
+            raise SyntaxError, "expected #{num_arg} arguments for command #{name}, but got #{args.size}"
+          end
+          kw = default_kwargs.merge(kwargs)
 
-        self.instance_exec(args, kw, &blk)
+          self.instance_exec(args, kw, &blk)
+        end
       end
     end
   end
@@ -129,30 +123,37 @@ class TeXMLDoc
   end
 
 
-  register_block_command(:code, 0, {lang: 'text'}) do |body, args, kwargs|
-    wrap_code_highlight(body, kwargs)
-  end
-
   ############################################################
   # Helper functions
   ############################################################
+  def collapse_text_nodes(nodes)
+    results = Array.new
+    prev_texts = Array.new
+    nodes.each { |x|
+      if x.is_a? String
+        prev_texts << x
+      else
+        if !prev_texts.empty?
+          results << prev_texts.join('')
+          prev_texts = Array.new
+        end
+        results << x
+      end
+    }
+    if !prev_texts.empty?
+      results << prev_texts.join('')
+    end
+
+    if (results.size == 1) && (results[0].is_a? String)
+      results[0]
+    else
+      results
+    end
+  end
 
   # wrap a paragraph, subclass should override this
   def wrap_paragraph(par)
     "\n\n#{par}\n\n"
-  end
-
-  # wrap embedded code highlight
-  def wrap_code_highlight(code, info)
-    "\n\n#{code}\n\n"
-  end
-
-  def wrap_inline_math(math)
-    "$#{math}$"
-  end
-
-  def wrap_display_math(math)
-    "$$#{math}$$"
   end
 
   # escape ordinary text, subclass should override this, e.g. HTML Doc should escape '<' to '&lt;', etc.
@@ -166,27 +167,3 @@ class TeXMLDoc
   end
 end
 
-class TeXMLHTMLDoc < TeXMLDoc
-
-  register_command(:emph, 1, style: 'i') do |args, kwargs|
-    case kwargs[:style] 
-    when 'i'
-      '<i>' + args[0] + '</i>'
-    when 'b'
-      '<b>' + args[0] + '</b>'
-    end
-  end
-
-  def escape_text(text)
-    text.gsub('<', '&lt;').
-      gsub('>', '&gt;')
-  end
-
-  def wrap_paragraph(par)
-    "<p>\n" + par.strip + "\n</p>\n"
-  end
-
-  def wrap_code_highlight(code, info)
-    "<pre class='lang-#{info[:lang]}'>" + code + "</pre>"
-  end
-end
