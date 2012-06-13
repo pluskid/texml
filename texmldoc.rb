@@ -51,6 +51,14 @@ class TeXMLDoc
     ' '
   end
 
+  register_renderer(:inline_math) do |math|
+    wrap_inline_math(math[1])
+  end
+
+  register_renderer(:display_math) do |math|
+    wrap_display_math(math[1])
+  end
+
   # renderer for inline command
   register_renderer(:command, :block_command) do |cmd|
     info = cmd[1]
@@ -137,6 +145,14 @@ class TeXMLDoc
   # wrap embedded code highlight
   def wrap_code_highlight(code, info)
     "\n\n#{code}\n\n"
+  end
+
+  def wrap_inline_math(math)
+    "$#{math}$"
+  end
+
+  def wrap_display_math(math)
+    "$$#{math}$$"
   end
 
   # escape ordinary text, subclass should override this, e.g. HTML Doc should escape '<' to '&lt;', etc.

@@ -20,7 +20,7 @@ grammar TeXML
   end
 
   rule block
-    blk:(verbatim_block_command / block_command / paragraph) '' {
+    blk:(display_math / verbatim_block_command / block_command / paragraph) '' {
       def value
         [:block, blk.value]
       end
@@ -42,7 +42,7 @@ grammar TeXML
   end
 
   rule text_node
-    inline_command / inline_literal / plain_text
+    inline_math / inline_command / inline_literal / plain_text
   end
 
   rule plain_text
@@ -69,6 +69,24 @@ grammar TeXML
     }
   end
 
+#========================================
+# Math
+#========================================
+  rule inline_math
+    ('$' !'$') math:[^$]+ '$' {
+      def value
+        [:inline_math, math.text_value]
+      end
+    }
+  end
+
+  rule display_math
+    '$$' math:(!'$$' .)+ '$$' {
+      def value
+        [:display_math, math.text_value]
+      end
+    }
+  end
 
 #========================================
 # Commands
