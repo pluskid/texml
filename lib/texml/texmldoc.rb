@@ -26,27 +26,37 @@ class TeXMLDoc
 
   # renderer for doc node
   register_renderer(:doc) do |doc|
-    collapse_text_nodes doc[1].map { |x| render_node(x) }
+    doc[1].each_with_index.map { |x, i| 
+      if i == 0
+        render_node(x) 
+      else
+        wrap_paragraph(render_node(x))
+      end
+    }
+  end
+
+  register_renderer(:text_span) do |doc|
+    doc[1].map { |x| render_node(x) }
   end
 
   register_renderer(:part) do |part|
-    wrap_paragraph(part[1].map {|x| render_node(x)}.join(''))
+    part[1].map {|x| render_node(x)}
   end
 
-  register_renderer(:text_span) do |span|
-    span[1].map {|x| render_node(x)}.join('')
-  end
-  
   register_renderer(:text) do |text|
-    escape_text(text[1])
+    Array(escape_text(text[1]))
   end
 
   register_renderer(:literal) do |text|
-    escape_literal(text[1])
+    Array(escape_literal(text[1]))
   end
 
   register_renderer(:space) do |space|
-    ' '
+    [' ']
+  end
+
+  register_renderer(:newline) do |newline|
+    ["\n"]
   end
 
   # renderer for inline command
@@ -63,14 +73,13 @@ class TeXMLDoc
       raise SyntaxError, "Command not found: #{name}"
     end
 
-    args = info[:args][:args].map { |x| render_node(x) }
-    kwargs = Hash.new
-    info[:args][:named_args].each { |k,v| kwargs[k] = render_node(v) }
+    args = info[:args][:args]
+    kwargs = info[:args][:named_args]
 
     if cmd[0] == :command
       self.send(cmd_meth, args, kwargs)
     else
-      body = render_node(info[:body])
+      body = info[:body]
       self.send(cmd_meth, body, args, kwargs)
     end
   end
@@ -79,19 +88,25 @@ class TeXMLDoc
   # - name: the symbol for the command name
   # - num_arg: number of arguments should the command get, automatic argument count check is performed
   #         when num_arg >= 0
+  # - render_args: when true, the value of arguments and kwargs are all rendered 
+  #         before passing in
   # - default_kwargs: default keyword arguments, this is merged with user-specified kwargs before passing
   #         to the block
   # - blk: the block to render the command output. It accept two arguments:
   #         - args: array of arguments
   #         - kwargs: hash of keyword arguments
-  #        all the values of the arguments are already rendered
-  def self.register_command(names, num_arg, default_kwargs, &blk)
+  def self.register_command(names, num_arg=-1, render_args=true, default_kwargs={}, &blk)
     Array(names).each do |name|
       define_method("command_#{name}".to_sym) do |args, kwargs|
         if num_arg >= 0
           if num_arg != args.size
             raise SyntaxError, "expected #{num_arg} arguments for command #{name}, but got #{args.size}"
           end
+
+          if render_args
+            args, kwargs = render_args(args, kwargs)
+          end
+
           kw = default_kwargs.merge(kwargs)
 
           self.instance_exec(args, kw, &blk)
@@ -103,16 +118,21 @@ class TeXMLDoc
   # register block command
   # see register_command for doc of the parameters
   # the blk proc now accept three arguments:
-  #   - body: the body of the text block, for verbatim command, the body is not rendered, but
-  #           for ordinary block command, the body is already rendered
+  #   - body: the body of the text block, for verbatim command
   #   - args: array of arguments
   #   - kwargs: hash of keyword arguments
-  def self.register_block_command(name, num_arg, default_kwargs, &blk)
+  def self.register_block_command(name, num_arg=-1, render_args=true, default_kwargs={}, &blk)
     define_method("block_command_#{name}".to_sym) do |body, args, kwargs|
       if num_arg >= 0
         if num_arg != args.size
           raise SyntaxError, "expected #{num_arg} arguments for block command #{name}, but got #{args.size}"
         end
+
+        if render_args
+          args, kwargs = render_args(args, kwargs)
+          body = render_node(body)
+        end
+
         kw = default_kwargs.merge(kwargs)
 
         self.instance_exec(body, args, kw, &blk)
@@ -120,38 +140,51 @@ class TeXMLDoc
     end
   end
 
+  # itemize support
+  register_command(:item, 0) do |args, kwargs|
+    [:item]
+  end
+  register_block_command(:itemize, 0, true, :type => 'unordered') do |body, args, kwargs|
+    results = []
+    first_item = true
+    body.flatten.each { |x|
+      if x == :item
+        if !first_item
+          results << item_end
+        end
+        first_item = false
+        results << item_start
+      else
+        results << x
+      end
+    }
+    results << item_end
+    wrap_itemize(results, kwargs)
+  end
+
 
   ############################################################
   # Helper functions
   ############################################################
-  def collapse_text_nodes(nodes)
-    results = Array.new
-    prev_texts = Array.new
-    nodes.each { |x|
-      if x.is_a? String
-        prev_texts << x
-      else
-        if !prev_texts.empty?
-          results << prev_texts.join('')
-          prev_texts = Array.new
-        end
-        results << x
-      end
-    }
-    if !prev_texts.empty?
-      results << prev_texts.join('')
-    end
+  def item_start
+    "\n * "
+  end
+  def item_end
+    "\n"
+  end
+  def wrap_itemize(elements, opt)
+    ["\n\n", elements, "\n\n"]
+  end
 
-    if (results.size == 1) && (results[0].is_a? String)
-      results[0]
-    else
-      results
-    end
+  def render_args(args, kwargs)
+    args.map! {|x| render_node(x)}
+    kwargs.each {|k,v| kwargs[k] = render_node(v)}
+    [args, kwargs]
   end
 
   # wrap a paragraph, subclass should override this
   def wrap_paragraph(par)
-    "\n\n#{par}\n\n"
+    ["\n\n"] + par + ["\n\n"]
   end
 
   # escape ordinary text, subclass should override this, e.g. HTML Doc should escape '<' to '&lt;', etc.

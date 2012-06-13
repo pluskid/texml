@@ -22,7 +22,9 @@ grammar TeXML
   rule part
     b0:block br:(line_break block)* {
       def value
-        [:part, [b0.value] + br.elements.map{|x| x.block.value}]
+        [:part, br.elements.inject([b0.value]) {|res, x|
+          res + [[:newline], x.block.value]
+        }]
       end
     }
   end
@@ -138,7 +140,7 @@ grammar TeXML
   end
 
   rule command_args
-    &([ \t\n\r]+) '' {
+    [ \t\n\r]+ {
       def value
         { named_args: {}, args: [] }
       end
@@ -168,7 +170,7 @@ grammar TeXML
   end
 
   rule cmd_named_arg
-    "{" symbol ":" text_span "}" {
+    "{" symbol ":" [ \t]+ text_span "}" {
       def value
         [:named_arg, [symbol.value, text_span.value]]
       end
