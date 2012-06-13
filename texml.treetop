@@ -72,7 +72,7 @@ grammar TeXML
   rule verbatim_block_command
     "\\s:@" name1:symbol &{|seq| $__texml_block_name = seq[1].value; true}
       command_args 
-      content:(!("\\e:@" symbol &{|seq| $__texml_block_name == seq[1].text_value}) .)*
+      content:(!("\\e:@" symbol &{|seq| $__texml_block_name == seq[1].value}) .)*
     "\\e:@" name2:symbol &{ |seq|
       seq[1].value == seq[6].value
     } {
@@ -180,7 +180,7 @@ grammar TeXML
   rule symbol
     [a-zA-Z] [a-zA-Z0-9]* {
       def value
-        text_value
+        text_value.to_sym
       end
     }
   end
