@@ -112,7 +112,11 @@ grammar TeXML
   end
 
   rule command_args
-    (cmd_empty_arg / cmd_named_arg / cmd_arg)+ {
+    &([ \t\n\r]+) '' {
+      def value
+        { named_args: {}, args: [] }
+      end
+    } / (cmd_empty_arg / cmd_named_arg / cmd_arg)+ {
       def value
         named_args = Hash.new
         args = Array.new
