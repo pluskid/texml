@@ -1,0 +1,207 @@
+grammar TeXML
+  rule document
+    [\s]* blocks [\s]* {
+      def value 
+        blocks.value 
+      end 
+    } / [\s]* {
+      def value
+        []
+      end
+    }
+  end
+
+  rule blocks
+    b0:block br:(paragraph_seperation block)* {
+      def value
+        [b0.value] + br.elements.map{|x| x.block.value}
+      end
+    }
+  end
+
+  rule block
+    verbatim_block_command / block_command / paragraph
+  end
+
+  rule paragraph
+    (text_node space:(inline_whitespace / line_break)?)+ {
+      def value
+        value = [:par, elements.inject([]) {|res, x| 
+          if x.space.empty?
+            res + [x.text_node.value]
+          else
+            res + [x.text_node.value, [:space]]
+          end
+        }]
+      end
+    }
+  end
+
+  rule text_node
+    inline_command / inline_literal / plain_text
+  end
+
+  rule plain_text
+    (escaped_char / text_char)+ {
+      def value
+        [:text, elements.map {|x| x.value}.join('')]
+      end
+    }
+  end
+
+  rule inline_literal
+    "@{" content:(escaped_char / inline_literal_char)* "}" {
+      def value
+        [:text, content.elements.map {|x| x.value}.join('')]
+      end
+    }
+  end
+
+  rule inline_literal_char
+    [^}] {
+      def value
+        text_value
+      end
+    }
+  end
+
+
+#========================================
+# Commands
+#========================================
+  rule verbatim_block_command
+    "\\s:@" name1:symbol &{|seq| $__texml_block_name = seq[1].value; true}
+      command_args 
+      content:(!("\\e:@" symbol &{|seq| $__texml_block_name == seq[1].text_value}) .)*
+    "\\e:@" name2:symbol &{ |seq|
+      seq[1].value == seq[6].value
+    } {
+      def value
+        [:block_command, {
+          name: name1.value,
+          args: command_args.value,
+          body: content.text_value
+        }]
+      end
+    }
+  end
+
+  rule block_command
+    "\\s:" name1:symbol command_args document "\\e:" name2:symbol &{ |seq|
+      seq[1].value == seq[5].value
+    } {
+      def value
+        [:block_command, {
+          name: name1.value,
+          args: command_args.value,
+          body: document.value
+        }]
+      end
+    }
+  end
+
+  rule inline_command
+    "\\" symbol command_args {
+      def value
+        [:command, {
+          name: symbol.value,
+          args: command_args.value
+        }]
+      end
+    }
+  end
+
+  rule command_args
+    (cmd_empty_arg / cmd_named_arg / cmd_arg)+ {
+      def value
+        named_args = Hash.new
+        args = Array.new
+        elements.each { |x|
+          x = x.value
+          if x.first == :named_arg
+            named_args[x[1][0]] = x[1][1]
+          elsif x.first == :arg
+            args << x[1]
+          end
+        }
+        { named_args: named_args, args: args }
+      end
+    }
+  end
+
+  rule cmd_empty_arg
+    "{" inline_whitespace? "}" {
+      def value
+        [:empty_arg]
+      end
+    }
+  end
+
+  rule cmd_named_arg
+    "{" symbol ":" paragraph "}" {
+      def value
+        [:named_arg, [symbol.value, paragraph.value]]
+      end
+    }
+  end
+
+  rule cmd_arg
+    "{" paragraph "}" {
+      def value
+        [:arg, paragraph.value]
+      end
+    }
+  end
+
+
+#========================================
+# Tokens
+#========================================
+  rule escaped_char
+    "\\" char:[\\@{}] {
+      def value
+        char.text_value
+      end
+    }
+  end
+
+  rule text_char
+    [^\\@{}\s] {
+      def value
+        text_value
+      end
+    }
+  end
+
+  rule symbol
+    [a-zA-Z] [a-zA-Z0-9]* {
+      def value
+        text_value
+      end
+    }
+  end
+
+  rule inline_whitespace
+    [ \t]+ {
+      def value
+        text_value
+      end
+    }
+  end
+
+  rule line_break
+    inline_whitespace? ([\n\r] ![\n\r]) inline_whitespace? {
+      def value
+        text_value
+      end
+    }
+  end
+
+  rule paragraph_seperation
+    (inline_whitespace? [\n\r] inline_whitespace?) 2.. {
+      def value
+        text_value
+      end
+    }
+  end
+end
