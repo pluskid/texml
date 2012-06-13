@@ -2,11 +2,11 @@ grammar TeXML
   rule document
     [\s]* blocks [\s]* {
       def value 
-        blocks.value 
+        [:doc, blocks.value]
       end 
     } / [\s]* {
       def value
-        []
+        [:doc, []]
       end
     }
   end
@@ -20,7 +20,11 @@ grammar TeXML
   end
 
   rule block
-    verbatim_block_command / block_command / paragraph
+    blk:(verbatim_block_command / block_command / paragraph) '' {
+      def value
+        [:block, blk.value]
+      end
+    }
   end
 
   rule paragraph
