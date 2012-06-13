@@ -25,18 +25,16 @@ class TeXMLDoc
   ############################################################
 
   # renderer for doc node
-  register_renderer(:doc, :par) do |doc|
+  register_renderer(:doc) do |doc|
     collapse_text_nodes doc[1].map { |x| render_node(x) }
   end
 
-  # renderer for paragraph
-  register_renderer(:block) do |blk|
-    inside = blk[1]
-    if inside[0] == :par
-      wrap_paragraph(render_node(inside))
-    else
-      render_node(inside)
-    end
+  register_renderer(:part) do |part|
+    wrap_paragraph(part[1].map {|x| render_node(x)}.join(''))
+  end
+
+  register_renderer(:text_span) do |span|
+    span[1].map {|x| render_node(x)}.join('')
   end
   
   register_renderer(:text) do |text|

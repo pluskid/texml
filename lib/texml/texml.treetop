@@ -1,8 +1,8 @@
 grammar TeXML
   rule document
-    [\s]* blocks [\s]* {
+    [\s]* parts [\s]* {
       def value 
-        [:doc, blocks.value]
+        [:doc, parts.value]
       end 
     } / [\s]* {
       def value
@@ -11,26 +11,30 @@ grammar TeXML
     }
   end
 
-  rule blocks
-    b0:block br:(paragraph_seperation block)* {
+  rule parts
+    p0:part pr:(paragraph_seperation part)* {
       def value
-        [b0.value] + br.elements.map{|x| x.block.value}
+        [p0.value] + pr.elements.map{|x| x.part.value}
+      end
+    }
+  end
+
+  rule part
+    b0:block br:(line_break block)* {
+      def value
+        [:part, [b0.value] + br.elements.map{|x| x.block.value}]
       end
     }
   end
 
   rule block
-    blk:(display_math / verbatim_block_command / block_command / paragraph) '' {
-      def value
-        [:block, blk.value]
-      end
-    }
+    display_math / verbatim_block_command / block_command / text_span
   end
 
-  rule paragraph
-    (text_node space:(inline_whitespace / line_break)?)+ {
+  rule text_span
+    (text_node space:inline_whitespace?)+ {
       def value
-        value = [:par, elements.inject([]) {|res, x| 
+        value = [:text_span, elements.inject([]) {|res, x| 
           if x.space.empty?
             res + [x.text_node.value]
           else
@@ -164,17 +168,17 @@ grammar TeXML
   end
 
   rule cmd_named_arg
-    "{" symbol ":" paragraph "}" {
+    "{" symbol ":" text_span "}" {
       def value
-        [:named_arg, [symbol.value, paragraph.value]]
+        [:named_arg, [symbol.value, text_span.value]]
       end
     }
   end
 
   rule cmd_arg
-    "{" paragraph "}" {
+    "{" text_span "}" {
       def value
-        [:arg, paragraph.value]
+        [:arg, text_span.value]
       end
     }
   end
