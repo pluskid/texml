@@ -1,5 +1,3 @@
-require './texmldoc'
-
 class TeXMLHTMLDoc < TeXMLDoc
 
   register_renderer(:inline_math) do |math|

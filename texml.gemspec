@@ -7,5 +7,7 @@ Gem::Specification.new do |s|
   s.authors = ['pluskid']
   s.email = 'pluskid@gmail.com'
   s.files = Dir['lib/**/*']
-  s.homepage = ''
+  s.homepage = 'https://github.com/pluskid/texml'
+
+  s.add_runtime_dependency 'treetop', '~> 1.4', '>= 1.4.10'
 end
