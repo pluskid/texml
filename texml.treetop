@@ -52,7 +52,7 @@ grammar TeXML
   rule inline_literal
     "@{" content:(escaped_char / inline_literal_char)* "}" {
       def value
-        [:text, content.elements.map {|x| x.value}.join('')]
+        [:literal, content.elements.map {|x| x.value}.join('')]
       end
     }
   end
@@ -80,7 +80,7 @@ grammar TeXML
         [:block_command, {
           name: name1.value,
           args: command_args.value,
-          body: content.text_value
+          body: [:literal, content.text_value]
         }]
       end
     }
