@@ -1,0 +1,8 @@
+Sparsity 是当今机器学习领域中的一个重要话题。John Lafferty 和 Larry Wasserman 在 2006 年的一篇\l{text: 评论}{http://www3.stat.sinica.edu.tw/statistica/J16N2/editorial3.pdf}中提到：
+
+\s:blockquote{source: John Lafferty and Larry Wasserman. \emph{Challenges in statistical machine learning}. Statistica Sinica. Volume 16, Number 2, pp. 307-323, 2006.}
+Some current challenges ... are high dimensional data, sparsity, semi-supervised learning, the relation between computation and risk, and structured prediction.
+\e:blockquote
+
+Sparsity 的最重要的“客户”大概要属 high dimensional data 了吧。现在的机器学习问题中，具有非常高维度的数据随处可见。例如，在文档或图片分类中常用的 \l{text: bag of words}{http://en.wikipedia.org/wiki/Bag_of_words_model} 模型里，如果词典的大小是一百万，那么每个文档将由一百万维的向量来表示。高维度带来的的一个问题就是计算量：在一百万维的空间中，即使计算向量的内积这样的基本操作也会是非常费力的。不过，如果向量是稀疏的的话（事实上在 bag of words 模型中文档向量通常都是非常稀疏的），例如两个向量分别只有 $L_1$ 和 $L_2$ 个非零元素，那么计算内积可以只使用 $\min(L_1,L_2)$ 次乘法完成。因此稀疏性对于解决高维度数据的计算量问题是非常有效的。
+
